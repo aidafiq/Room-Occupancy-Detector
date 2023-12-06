@@ -1,0 +1,72 @@
+import network
+import time
+from umqtt.simple import MQTTClient
+import json
+from dht import DHT11
+from machine import Pin
+
+d = DHT11(Pin(15))
+led1 = Pin(22, Pin.OUT)
+led2 = Pin(23, Pin.OUT)
+
+SSID = "D"
+PASSWORD = "11111119"
+
+SERVER = "mqtt.favoriot.com"
+client = MQTTClient("umqtt_client", SERVER, user="0bRGs16zviVcBbZ1i2Gr3eYWoV2mI0tX", password="0bRGs16zviVcBbZ1i2Gr3eYWoV2mI0tX")
+
+wlan = network.WLAN(network.STA_IF)
+wlan.active(True)
+wlan.disconnect()
+
+if not wlan.isconnected():
+  print("Connecting to network...")
+
+  wlan.connect(SSID,PASSWORD)
+  while not wlan.isconnected():
+    print('network config:',wlan.ifconfig())
+    time.sleep(5)
+    
+while wlan.isconnected():
+ topic = "0bRGs16zviVcBbZ1i2Gr3eYWoV2mI0tX/v2/streams" 
+ client.connect()
+ print("Status: Success")
+ print("-----------------------------")
+ 
+ # Read the temperature and humidity
+ d.measure()
+ temp = float(d.temperature())
+ humidity = float(d.humidity())
+  
+ # Print the temperature and humidity
+ print("Temperature: " + str(temp) + " C")
+ print("Humidity: " + str(humidity) + " %")
+ print("-----------------------------")
+ # Set the thresholds for temperature and humidity
+ temp_threshold = 27.0
+ high_temp = 30.1
+ humidity_threshold = 60.0
+ high_humidity = 85.1
+ 
+ # Set led
+ if temp > high_temp and humidity > high_humidity:
+   led1.on()
+   led2.off()
+   room_status = "Room Occupied"
+   print(room_status)
+   
+ if (temp > temp_threshold and humidity > humidity_threshold) and (temp < high_temp and humidity < high_humidity):
+   led2.on()
+   led1.off()
+   room_status = "Room Empty"
+   print(room_status)
+
+  
+ device_developer_id = "ESP32_TEST@S62418"
+ data = {"Temperature":temp,"Humidity":humidity,"Room_Status":room_status}
+ json_data = json.dumps({"device_developer_id": device_developer_id, "data": data})
+ client.publish(topic, json_data)
+  
+ #client.publish(topic, '{"device_developer_id": "ESP32_TEST@S62418", "data": {"temp":'+ str(temp)+',"hum":'+str(humidity)+'}}')
+ client.disconnect()
+ time.sleep(5)
